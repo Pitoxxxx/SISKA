@@ -39,6 +39,7 @@ class MainActivity : AppCompatActivity() {
 
         // Mendaftarkan WebChromeClient untuk menangani upload file
         webView.webChromeClient = object : WebChromeClient() {
+
             // For Android < 3.0
             fun openFileChooser(uploadMsg: ValueCallback<Uri>) {
                 uploadMessage = ValueCallback<Array<Uri>> { value -> uploadMsg.onReceiveValue((value.firstOrNull()?.let { arrayOf(it) } ?: emptyArray()) as Uri?) }
@@ -53,7 +54,7 @@ class MainActivity : AppCompatActivity() {
                 openFileChooser(uploadMsg)
             }
 
-//            // For Android >= 4.1
+            // For Android >= 4.1
 //            override fun openFileChooser(uploadMsg: ValueCallback<Uri>, acceptType: String?, capture: String?) {
 //                openFileChooser(uploadMsg)
 //            }
@@ -80,25 +81,17 @@ class MainActivity : AppCompatActivity() {
     // Override onActivityResult untuk menangani hasil dari aktivitas lain (misalnya, pemilihan file)
     override fun onActivityResult(requestCode: Int, resultCode: Int, intent: Intent?) {
         super.onActivityResult(requestCode, resultCode, intent)
-
         if (requestCode == FILE_CHOOSER_RESULT_CODE) {
             if (uploadMessage == null && uploadMessageAboveL == null) return
             val result = if (intent == null || resultCode != Activity.RESULT_OK) null else intent.data
             if (uploadMessageAboveL != null) {
-                onActivityResultAboveL(requestCode, resultCode, intent)
+                val results = WebChromeClient.FileChooserParams.parseResult(resultCode, intent)
+                uploadMessageAboveL!!.onReceiveValue(results)
+                uploadMessageAboveL = null
             } else if (uploadMessage != null) {
                 uploadMessage!!.onReceiveValue(arrayOf(result!!))
                 uploadMessage = null
             }
         }
-    }
-
-    private fun onActivityResultAboveL(requestCode: Int, resultCode: Int, intent: Intent?) {
-        if (requestCode != FILE_CHOOSER_RESULT_CODE || uploadMessageAboveL == null) {
-            return
-        }
-        val results = WebChromeClient.FileChooserParams.parseResult(resultCode, intent)
-        uploadMessageAboveL!!.onReceiveValue(results)
-        uploadMessageAboveL = null
     }
 }
