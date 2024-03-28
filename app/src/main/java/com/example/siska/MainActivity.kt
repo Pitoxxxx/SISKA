@@ -3,22 +3,23 @@ package com.example.siska
 import android.app.Activity
 import android.content.Intent
 import android.net.Uri
+import android.os.Bundle
+import android.provider.MediaStore
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
-import androidx.appcompat.app.AppCompatActivity
-import android.os.Bundle
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import androidx.appcompat.app.AlertDialog
+import androidx.appcompat.app.AppCompatActivity
 
 class MainActivity : AppCompatActivity() {
-
-    // Deklarasi WebView
     private lateinit var webView: WebView
+    private var filePathCallback: ValueCallback<Array<Uri>>? = null
 
-    // Deklarasi variabel untuk menangani upload file
-    private var uploadMessage: ValueCallback<Array<Uri>>? = null
-    private var uploadMessageAboveL: ValueCallback<Array<Uri>>? = null
-    private val FILE_CHOOSER_RESULT_CODE = 100
+    companion object {
+        private const val REQUEST_CAMERA = 1001
+        private const val REQUEST_GALLERY = 1002
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -31,67 +32,79 @@ class MainActivity : AppCompatActivity() {
         // Web Setting
         val webSettings = webView.settings
 
-        // Mengaktifkan Javascript
+        // Mengaktifkan javascript
         webSettings.javaScriptEnabled = true
 
-        // Mengaktifkan Tools Lain
+        // Mengaktifkan tool lain
         webSettings.domStorageEnabled = true
 
-        // Mendaftarkan WebChromeClient untuk menangani upload file
+        // Konfigurasi WebChromeClient
         webView.webChromeClient = object : WebChromeClient() {
-
-            // For Android < 3.0
-            fun openFileChooser(uploadMsg: ValueCallback<Uri>) {
-                uploadMessage = ValueCallback<Array<Uri>> { value -> uploadMsg.onReceiveValue((value.firstOrNull()?.let { arrayOf(it) } ?: emptyArray()) as Uri?) }
-                val i = Intent(Intent.ACTION_GET_CONTENT)
-                i.addCategory(Intent.CATEGORY_OPENABLE)
-                i.type = "image/*"
-                startActivityForResult(Intent.createChooser(i, "File Chooser"), FILE_CHOOSER_RESULT_CODE)
-            }
-
-            // For Android >= 3.0
-            fun openFileChooser(uploadMsg: ValueCallback<Uri>, acceptType: String?) {
-                openFileChooser(uploadMsg)
-            }
-
-            // For Android >= 4.1
-//            override fun openFileChooser(uploadMsg: ValueCallback<Uri>, acceptType: String?, capture: String?) {
-//                openFileChooser(uploadMsg)
-//            }
-
-            // For Android >= 5.0
-            override fun onShowFileChooser(webView: WebView?, filePathCallback: ValueCallback<Array<Uri>>?, fileChooserParams: FileChooserParams?): Boolean {
-                if (uploadMessageAboveL != null) {
-                    uploadMessageAboveL!!.onReceiveValue(null)
-                    uploadMessageAboveL = null
-                }
-                uploadMessageAboveL = filePathCallback
-                val intent = fileChooserParams!!.createIntent()
-                try {
-                    startActivityForResult(intent, FILE_CHOOSER_RESULT_CODE)
-                } catch (e: Exception) {
-                    uploadMessageAboveL = null
-                    return false
-                }
+            override fun onShowFileChooser(
+                webView: WebView?,
+                filePathCallback: ValueCallback<Array<Uri>>?,
+                fileChooserParams: FileChooserParams?
+            ): Boolean {
+                this@MainActivity.filePathCallback = filePathCallback
+                showOptionsDialog()
                 return true
             }
         }
     }
 
-    // Override onActivityResult untuk menangani hasil dari aktivitas lain (misalnya, pemilihan file)
-    override fun onActivityResult(requestCode: Int, resultCode: Int, intent: Intent?) {
-        super.onActivityResult(requestCode, resultCode, intent)
-        if (requestCode == FILE_CHOOSER_RESULT_CODE) {
-            if (uploadMessage == null && uploadMessageAboveL == null) return
-            val result = if (intent == null || resultCode != Activity.RESULT_OK) null else intent.data
-            if (uploadMessageAboveL != null) {
-                val results = WebChromeClient.FileChooserParams.parseResult(resultCode, intent)
-                uploadMessageAboveL!!.onReceiveValue(results)
-                uploadMessageAboveL = null
-            } else if (uploadMessage != null) {
-                uploadMessage!!.onReceiveValue(arrayOf(result!!))
-                uploadMessage = null
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        when (requestCode) {
+            REQUEST_CAMERA -> {
+                if (resultCode == Activity.RESULT_OK) {
+                    val imageUri = data?.data
+                    imageUri?.let { filePathCallback?.onReceiveValue(arrayOf(it)) }
+                } else {
+                    // Pengguna membatalkan, kirim null ke WebView
+                    filePathCallback?.onReceiveValue(null)
+                }
+            }
+            REQUEST_GALLERY -> {
+                if (resultCode == Activity.RESULT_OK) {
+                    val uri = data?.data
+                    uri?.let { filePathCallback?.onReceiveValue(arrayOf(it)) }
+                } else {
+                    // Pengguna membatalkan, kirim null ke WebView
+                    filePathCallback?.onReceiveValue(null)
+                }
             }
         }
+        filePathCallback = null
     }
+
+    private fun showOptionsDialog() {
+        val options = arrayOf("Take Photo", "Choose from Gallery")
+        AlertDialog.Builder(this)
+            .setTitle("Choose an option")
+            .setItems(options) { _, which ->
+                when (which) {
+                    0 -> takePhoto()
+                    1 -> chooseFromGallery()
+                }
+            }
+            .setNegativeButton("Cancel") { dialog, _ ->
+                dialog.dismiss()
+                // Pengguna membatalkan, kirim null ke WebView
+                filePathCallback?.onReceiveValue(null)
+                filePathCallback = null
+            }
+            .show()
+    }
+
+    private fun takePhoto() {
+        val intent = Intent(MediaStore.ACTION_IMAGE_CAPTURE)
+        startActivityForResult(intent, REQUEST_CAMERA)
+    }
+
+    private fun chooseFromGallery() {
+        val intent = Intent(Intent.ACTION_GET_CONTENT)
+        intent.type = "image/*"
+        startActivityForResult(intent, REQUEST_GALLERY)
+    }
+
 }
