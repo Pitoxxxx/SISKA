@@ -17,9 +17,9 @@
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
-        android:icon="@drawable/logokimiafarma"
+        android:icon="@drawable/logosplashscreen"
         android:label="@string/app_name"
-        android:roundIcon="@drawable/logokimiafarma"
+        android:roundIcon="@drawable/logosplashscreen"
         android:supportsRtl="true"
         android:theme="@style/Theme.SISKA"
         tools:targetApi="31">
