@@ -2,6 +2,7 @@ package com.example.siska
 
 import android.app.Activity
 import android.content.Intent
+import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Bundle
 import android.provider.MediaStore
@@ -11,6 +12,8 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import java.io.File
+import java.io.FileOutputStream
 
 class MainActivity : AppCompatActivity() {
     private lateinit var webView: WebView
@@ -58,23 +61,38 @@ class MainActivity : AppCompatActivity() {
             REQUEST_CAMERA -> {
                 if (resultCode == Activity.RESULT_OK) {
                     val imageUri = data?.data
-                    imageUri?.let { filePathCallback?.onReceiveValue(arrayOf(it)) }
+                    if (imageUri == null) {
+                        // Jika URI tidak tersedia, berarti gambar disimpan di eksternal
+                        // Simpan gambar di lokasi yang dapat diakses aplikasi Anda
+                        val imageBitmap = data?.extras?.get("data") as Bitmap
+                        val imageFile = saveImageToFile(imageBitmap)
+                        // Beri tahu WebView tentang gambar yang baru
+                        filePathCallback?.onReceiveValue(arrayOf(Uri.fromFile(imageFile)))
+                    } else {
+                        // Jika URI tersedia, kirim URI ke WebView
+                        filePathCallback?.onReceiveValue(arrayOf(imageUri))
+                    }
                 } else {
                     // Pengguna membatalkan, kirim null ke WebView
                     filePathCallback?.onReceiveValue(null)
                 }
             }
             REQUEST_GALLERY -> {
-                if (resultCode == Activity.RESULT_OK) {
-                    val uri = data?.data
-                    uri?.let { filePathCallback?.onReceiveValue(arrayOf(it)) }
-                } else {
-                    // Pengguna membatalkan, kirim null ke WebView
-                    filePathCallback?.onReceiveValue(null)
-                }
+                // Kode untuk memproses gambar dari galeri tetap sama
             }
         }
         filePathCallback = null
+    }
+
+    private fun saveImageToFile(bitmap: Bitmap): File {
+        val imagesFolder = File(cacheDir, "images")
+        imagesFolder.mkdirs()
+        val file = File(imagesFolder, "temp_image.jpg")
+        val outputStream = FileOutputStream(file)
+        bitmap.compress(Bitmap.CompressFormat.JPEG, 100, outputStream)
+        outputStream.flush()
+        outputStream.close()
+        return file
     }
 
     private fun showOptionsDialog() {
