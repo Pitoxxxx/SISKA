@@ -1,128 +1,83 @@
 package com.example.siska
 
+import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Intent
-import android.graphics.Bitmap
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
-import android.provider.MediaStore
+import android.view.WindowManager
+import android.webkit.PermissionRequest
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
+import android.webkit.WebSettings
+import androidx.appcompat.app.AppCompatActivity
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import androidx.appcompat.app.AlertDialog
-import androidx.appcompat.app.AppCompatActivity
-import java.io.File
-import java.io.FileOutputStream
 
 class MainActivity : AppCompatActivity() {
-    private lateinit var webView: WebView
-    private var filePathCallback: ValueCallback<Array<Uri>>? = null
 
-    companion object {
-        private const val REQUEST_CAMERA = 1001
-        private const val REQUEST_GALLERY = 1002
-    }
+    private val FILECHOOSER_RESULTCODE = 1
+    private var mUploadMessage: ValueCallback<Array<Uri>>? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        webView = findViewById(R.id.WV)
+        supportActionBar?.hide()
+        window.setFlags(
+            WindowManager.LayoutParams.FLAG_FULLSCREEN,
+            WindowManager.LayoutParams.FLAG_FULLSCREEN
+        )
+
+        val webView: WebView = findViewById(R.id.WV)
         webView.webViewClient = WebViewClient()
         webView.loadUrl("https://siska.kimiafarma.co.id/")
 
-        // Web Setting
         val webSettings = webView.settings
-
-        // Mengaktifkan javascript
         webSettings.javaScriptEnabled = true
-
-        // Mengaktifkan tool lain
         webSettings.domStorageEnabled = true
 
-        // Konfigurasi WebChromeClient
+        // Aktifkan mixed content mode jika perangkat menjalankan Android Lollipop atau versi yang lebih baru
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            webSettings.mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
+        }
+
         webView.webChromeClient = object : WebChromeClient() {
             override fun onShowFileChooser(
                 webView: WebView?,
                 filePathCallback: ValueCallback<Array<Uri>>?,
                 fileChooserParams: FileChooserParams?
             ): Boolean {
-                this@MainActivity.filePathCallback = filePathCallback
-                showOptionsDialog()
+                if (mUploadMessage != null) {
+                    mUploadMessage?.onReceiveValue(null)
+                    mUploadMessage = null
+                }
+                mUploadMessage = filePathCallback
+                val intent = Intent(Intent.ACTION_GET_CONTENT)
+                intent.addCategory(Intent.CATEGORY_OPENABLE)
+                intent.type = "image/*"
+                startActivityForResult(
+                    Intent.createChooser(intent, "Select Picture"),
+                    FILECHOOSER_RESULTCODE
+                )
                 return true
             }
         }
     }
 
+    // Handling the result of the file chooser activity
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
-        when (requestCode) {
-            REQUEST_CAMERA -> {
-                if (resultCode == Activity.RESULT_OK) {
-                    val imageUri = data?.data
-                    if (imageUri == null) {
-                        // Jika URI tidak tersedia, berarti gambar disimpan di eksternal
-                        // Simpan gambar di lokasi yang dapat diakses aplikasi Anda
-                        val imageBitmap = data?.extras?.get("data") as Bitmap
-                        val imageFile = saveImageToFile(imageBitmap)
-                        // Beri tahu WebView tentang gambar yang baru
-                        filePathCallback?.onReceiveValue(arrayOf(Uri.fromFile(imageFile)))
-                    } else {
-                        // Jika URI tersedia, kirim URI ke WebView
-                        filePathCallback?.onReceiveValue(arrayOf(imageUri))
-                    }
-                } else {
-                    // Pengguna membatalkan, kirim null ke WebView
-                    filePathCallback?.onReceiveValue(null)
-                }
-            }
-            REQUEST_GALLERY -> {
-                // Kode untuk memproses gambar dari galeri tetap sama
+        if (requestCode == FILECHOOSER_RESULTCODE) {
+            if (resultCode == Activity.RESULT_OK) {
+                val result = data?.data?.let { arrayOf(it) }
+                mUploadMessage?.onReceiveValue(result)
+                mUploadMessage = null
+            } else {
+                mUploadMessage?.onReceiveValue(null)
+                mUploadMessage = null
             }
         }
-        filePathCallback = null
     }
-
-    private fun saveImageToFile(bitmap: Bitmap): File {
-        val imagesFolder = File(cacheDir, "images")
-        imagesFolder.mkdirs()
-        val file = File(imagesFolder, "temp_image.jpg")
-        val outputStream = FileOutputStream(file)
-        bitmap.compress(Bitmap.CompressFormat.JPEG, 100, outputStream)
-        outputStream.flush()
-        outputStream.close()
-        return file
-    }
-
-    private fun showOptionsDialog() {
-        val options = arrayOf("Take Photo", "Choose from Gallery")
-        AlertDialog.Builder(this)
-            .setTitle("Choose an option")
-            .setItems(options) { _, which ->
-                when (which) {
-                    0 -> takePhoto()
-                    1 -> chooseFromGallery()
-                }
-            }
-            .setNegativeButton("Cancel") { dialog, _ ->
-                dialog.dismiss()
-                // Pengguna membatalkan, kirim null ke WebView
-                filePathCallback?.onReceiveValue(null)
-                filePathCallback = null
-            }
-            .show()
-    }
-
-    private fun takePhoto() {
-        val intent = Intent(MediaStore.ACTION_IMAGE_CAPTURE)
-        startActivityForResult(intent, REQUEST_CAMERA)
-    }
-
-    private fun chooseFromGallery() {
-        val intent = Intent(Intent.ACTION_GET_CONTENT)
-        intent.type = "image/*"
-        startActivityForResult(intent, REQUEST_GALLERY)
-    }
-
 }
