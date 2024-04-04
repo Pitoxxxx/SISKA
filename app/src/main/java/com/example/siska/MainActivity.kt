@@ -1,6 +1,7 @@
 package com.example.siska
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
@@ -116,6 +117,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    @SuppressLint("SetJavaScriptEnabled")
     private fun loadWebView() {
         // Lakukan semua inisialisasi WebView dan muat URL di sini
         val webView: WebView = findViewById(R.id.WV)
@@ -127,9 +129,7 @@ class MainActivity : AppCompatActivity() {
         webSettings.domStorageEnabled = true
 
         // Aktifkan mixed content mode jika perangkat menjalankan Android Lollipop atau versi yang lebih baru
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            webSettings.mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
-        }
+        webSettings.mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
 
         webView.webChromeClient = object : WebChromeClient() {
             override fun onShowFileChooser(
