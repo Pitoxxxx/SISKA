@@ -13,6 +13,7 @@ import android.location.LocationManager
 import android.net.Uri
 import android.os.Bundle
 import android.os.Environment
+import android.provider.MediaStore
 import android.util.Log
 import android.view.WindowManager
 import android.webkit.CookieManager
@@ -26,12 +27,19 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
+import java.io.File
+import java.io.IOException
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class MainActivity : AppCompatActivity() {
 
     private val FILECHOOSER_RESULTCODE = 1
     private var mUploadMessage: ValueCallback<Array<Uri>>? = null
     private val LOCATION_PERMISSION_REQUEST_CODE = 1001
+    private var currentPhotoPath: String? = null
 
     // Mendefinisikan LocationManager
     private lateinit var locationManager: LocationManager
@@ -145,13 +153,26 @@ class MainActivity : AppCompatActivity() {
                     mUploadMessage = null
                 }
                 mUploadMessage = filePathCallback
-                val intent = Intent(Intent.ACTION_GET_CONTENT)
-                intent.addCategory(Intent.CATEGORY_OPENABLE)
-                intent.type = "image/*"
-                startActivityForResult(
-                    Intent.createChooser(intent, "Select Picture"),
-                    FILECHOOSER_RESULTCODE
+
+                val takePictureIntent = Intent(MediaStore.ACTION_IMAGE_CAPTURE)
+                val file = createImageFile()
+                val photoURI: Uri = FileProvider.getUriForFile(
+                    this@MainActivity,
+                    "com.example.siska.fileprovider",
+                    file
                 )
+                takePictureIntent.putExtra(MediaStore.EXTRA_OUTPUT, photoURI)
+
+                val contentSelectionIntent = Intent(Intent.ACTION_GET_CONTENT)
+                contentSelectionIntent.addCategory(Intent.CATEGORY_OPENABLE)
+                contentSelectionIntent.type = "image/*"
+
+                val chooserIntent = Intent(Intent.ACTION_CHOOSER)
+                chooserIntent.putExtra(Intent.EXTRA_INTENT, takePictureIntent)
+                chooserIntent.putExtra(Intent.EXTRA_TITLE, "Pilih Aksi")
+                chooserIntent.putExtra(Intent.EXTRA_INITIAL_INTENTS, arrayOf(contentSelectionIntent))
+
+                startActivityForResult(chooserIntent, FILECHOOSER_RESULTCODE)
                 return true
             }
         }
@@ -208,6 +229,21 @@ class MainActivity : AppCompatActivity() {
             val manager = getSystemService(DOWNLOAD_SERVICE) as DownloadManager
             manager.enqueue(request)
             Toast.makeText(applicationContext, "Sedang mendownload file", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    @Throws(IOException::class)
+    private fun createImageFile(): File {
+        // Create an image file name
+        val timeStamp: String = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
+        val storageDir: File? = getExternalFilesDir(Environment.DIRECTORY_PICTURES)
+        return File.createTempFile(
+            "JPEG_${timeStamp}_", /* prefix */
+            ".jpg", /* suffix */
+            storageDir /* directory */
+        ).apply {
+            // Save a file: path for use with ACTION_VIEW intents
+            currentPhotoPath = absolutePath
         }
     }
 
