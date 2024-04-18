@@ -3,6 +3,7 @@ package com.example.siska
 import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Activity
+import android.app.DownloadManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -12,8 +13,11 @@ import android.location.LocationManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Environment
 import android.util.Log
 import android.view.WindowManager
+import android.webkit.CookieManager
+import android.webkit.URLUtil
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebSettings
@@ -151,6 +155,60 @@ class MainActivity : AppCompatActivity() {
                 )
                 return true
             }
+        }
+
+        // Tambahkan atau ganti baris berikut pada bagian setDownloadListener
+//        webView.setDownloadListener { url, userAgent, contentDisposition, mimetype, contentLength ->
+//            val request = DownloadManager.Request(Uri.parse(url))
+//            request.setMimeType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet") // Tentukan tipe MIME sebagai XLS
+//            request.addRequestHeader("User-Agent", userAgent)
+//
+//            // Tentukan lokasi penyimpanan untuk file yang diunduh (misalnya di folder Downloads)
+//            val filename = "report.xls"  // Nama file menjadi report.xlsx
+//            val destination = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+//            request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, filename)
+//
+//            // Dapatkan DownloadManager dari sistem
+//            val downloadManager = getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+//
+//            // Mulai unduhan
+//            downloadManager.enqueue(request)
+//
+//            // Tampilkan pesan kepada pengguna bahwa file sedang diunduh
+//            Toast.makeText(applicationContext, "Downloading Excel file...", Toast.LENGTH_SHORT).show()
+//        }
+        webView.setDownloadListener { url, userAgent, contentDisposition, mimeType, length ->
+            val request = DownloadManager.Request(Uri.parse(url))
+            request.setMimeType(mimeType)
+            val cookies: String = CookieManager.getInstance().getCookie(url)
+            request.addRequestHeader("cookie", cookies)
+            request.addRequestHeader("User-Agent", userAgent)
+            request.setDescription("Download File...")
+            request.setTitle(URLUtil.guessFileName(url, contentDisposition, userAgent))
+            request.allowScanningByMediaScanner()
+            request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+
+            // Menambahkan penanganan khusus untuk file XLSX
+            if (mimeType == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet") {
+                // Tentukan direktori penyimpanan untuk unduhan
+                val downloadDirectory = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+                if (!downloadDirectory.exists()) {
+                    downloadDirectory.mkdirs()
+                }
+                val fileName = URLUtil.guessFileName(url, contentDisposition, mimeType)
+                val destinationUri = Uri.withAppendedPath(Uri.fromFile(downloadDirectory), fileName)
+                request.setDestinationUri(destinationUri)
+            } else {
+                // Untuk format file selain XLSX, gunakan metode setDestinationInExternalPublicDir
+                request.setDestinationInExternalPublicDir(
+                    Environment.DIRECTORY_DOWNLOADS, URLUtil.guessFileName(
+                        url, contentDisposition, mimeType
+                    ))
+            }
+
+            val manager = getSystemService(DOWNLOAD_SERVICE) as DownloadManager
+            manager.enqueue(request)
+            Toast.makeText(applicationContext, "Sedang mendownload file", Toast.LENGTH_SHORT).show()
         }
     }
 
