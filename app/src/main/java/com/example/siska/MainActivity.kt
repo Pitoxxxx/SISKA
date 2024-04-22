@@ -17,6 +17,7 @@ import android.provider.MediaStore
 import android.util.Log
 import android.view.WindowManager
 import android.webkit.CookieManager
+import android.webkit.URLUtil
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebSettings
@@ -32,22 +33,22 @@ import java.io.IOException
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import android.webkit.DownloadListener
-import android.webkit.URLUtil
 
 class MainActivity : AppCompatActivity() {
 
     private val FILECHOOSER_RESULTCODE = 1
     private var mUploadMessage: ValueCallback<Array<Uri>>? = null
     private val LOCATION_PERMISSION_REQUEST_CODE = 1001
-    private val CAMERA_PERMISSION_REQUEST_CODE = 1002
     private var currentPhotoPath: String? = null
 
     // Mendefinisikan LocationManager
     private lateinit var locationManager: LocationManager
 
     companion object {
+        // Inisialisasi waktu minimum antara pembaruan lokasi (dalam milidetik)
         private const val MIN_TIME_BW_UPDATES: Long = 1000 * 60 * 1 // 1 minute
+
+        // Inisialisasi jarak minimum antara pembaruan lokasi (dalam meter)
         private const val MIN_DISTANCE_CHANGE_FOR_UPDATES: Float = 10F // 10 meters
     }
 
@@ -64,36 +65,23 @@ class MainActivity : AppCompatActivity() {
         // Inisialisasi LocationManager
         locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
 
-        checkLocationPermission()
-
-        // Pastikan aplikasi memiliki izin menulis ke penyimpanan eksternal
-        if (ContextCompat.checkSelfPermission(
-                this,
-                Manifest.permission.WRITE_EXTERNAL_STORAGE
-            ) != PackageManager.PERMISSION_GRANTED
-        ) {
-            ActivityCompat.requestPermissions(
-                this,
-                arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE),
-                1
-            )
-        }
-    }
-
-    private fun checkLocationPermission() {
+        // Cek apakah izin lokasi sudah diberikan
         if (ContextCompat.checkSelfPermission(
                 this,
                 Manifest.permission.ACCESS_FINE_LOCATION
             ) != PackageManager.PERMISSION_GRANTED
         ) {
+            // Jika belum, minta izin
             ActivityCompat.requestPermissions(
                 this,
                 arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
                 LOCATION_PERMISSION_REQUEST_CODE
             )
         } else {
-            // Permission is granted
+            // Izin lokasi sudah diberikan, lanjutkan aktivitas selanjutnya
+            // contoh: muat WebView
             loadWebView()
+            // Dapatkan lokasi pengguna
             getLocation()
         }
     }
@@ -123,9 +111,13 @@ class MainActivity : AppCompatActivity() {
         when (requestCode) {
             LOCATION_PERMISSION_REQUEST_CODE -> {
                 if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    // Izin diberikan, lanjutkan aktivitas selanjutnya
+                    // contoh: muat WebView
                     loadWebView()
+                    // Dapatkan lokasi pengguna
                     getLocation()
                 } else {
+                    // Izin ditolak, beri tahu pengguna tentang keterbatasan aplikasi
                     Toast.makeText(
                         this,
                         "Aplikasi memerlukan izin lokasi untuk bekerja dengan baik",
@@ -133,58 +125,8 @@ class MainActivity : AppCompatActivity() {
                     ).show()
                 }
             }
-            CAMERA_PERMISSION_REQUEST_CODE -> {
-                if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    launchCamera()
-                } else {
-                    Toast.makeText(
-                        this,
-                        "Aplikasi memerlukan izin kamera untuk menjalankan tindakan ini",
-                        Toast.LENGTH_SHORT
-                    ).show()
-                }
-            }
         }
     }
-
-    private fun launchCamera() {
-        val takePictureIntent = Intent(MediaStore.ACTION_IMAGE_CAPTURE)
-        val photoURI = createImageFileURI()
-
-        takePictureIntent.putExtra(MediaStore.EXTRA_OUTPUT, photoURI)
-
-        val contentSelectionIntent = Intent(Intent.ACTION_GET_CONTENT)
-        contentSelectionIntent.addCategory(Intent.CATEGORY_OPENABLE)
-        contentSelectionIntent.type = "image/*"
-
-        val chooserIntent = Intent(Intent.ACTION_CHOOSER)
-        chooserIntent.putExtra(Intent.EXTRA_INTENT, takePictureIntent)
-        chooserIntent.putExtra(Intent.EXTRA_INITIAL_INTENTS, arrayOf(contentSelectionIntent))
-
-        startActivityForResult(chooserIntent, FILECHOOSER_RESULTCODE)
-    }
-
-    private fun createImageFileURI(): Uri {
-        val file = createImageFile()
-        return FileProvider.getUriForFile(
-            this@MainActivity,
-            "com.example.siska.fileprovider",
-            file
-        )
-    }
-
-    fun checkStoragePermission(): Boolean {
-        val permission = android.Manifest.permission.WRITE_EXTERNAL_STORAGE
-        return ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED
-    }
-
-    fun requestStoragePermission() {
-        val permission = android.Manifest.permission.WRITE_EXTERNAL_STORAGE
-        if (!checkStoragePermission()) {
-            ActivityCompat.requestPermissions(this, arrayOf(permission), 1001)
-        }
-    }
-
 
     @SuppressLint("SetJavaScriptEnabled")
     private fun loadWebView() {
@@ -228,66 +170,56 @@ class MainActivity : AppCompatActivity() {
                 val chooserIntent = Intent(Intent.ACTION_CHOOSER)
                 chooserIntent.putExtra(Intent.EXTRA_INTENT, takePictureIntent)
                 chooserIntent.putExtra(Intent.EXTRA_TITLE, "Pilih Aksi")
-                chooserIntent.putExtra(
-                    Intent.EXTRA_INITIAL_INTENTS,
-                    arrayOf(contentSelectionIntent)
-                )
+                chooserIntent.putExtra(Intent.EXTRA_INITIAL_INTENTS, arrayOf(contentSelectionIntent))
 
                 startActivityForResult(chooserIntent, FILECHOOSER_RESULTCODE)
                 return true
             }
         }
 
-        webView.setDownloadListener { url, userAgent, contentDisposition, mimeType, contentLength ->
+        webView.setDownloadListener { url, userAgent, contentDisposition, mimeType, length ->
             val request = DownloadManager.Request(Uri.parse(url))
-
-            // Set MIME type dari informasi yang diterima
             request.setMimeType(mimeType)
 
-            // Ambil cookie untuk unduhan
-            val cookies: String = CookieManager.getInstance().getCookie(url)
-            request.addRequestHeader("cookie", cookies)
-            request.addRequestHeader("User-Agent", userAgent)
+            val cookies = CookieManager.getInstance().getCookie(url)
+            if (cookies != null) {
+                request.addRequestHeader("Cookie", cookies)
+            }
 
-            // Gunakan URLUtil untuk menebak nama file
             val fileName = URLUtil.guessFileName(url, contentDisposition, mimeType)
+            request.setTitle(fileName)
+            request.setDescription("Mengunduh file: $fileName")
 
-            // Menentukan lokasi penyimpanan
             val downloadDirectory = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
             if (!downloadDirectory.exists()) {
                 downloadDirectory.mkdirs()
             }
 
-            // Set lokasi penyimpanan berdasarkan nama file
-            val destinationUri = Uri.withAppendedPath(Uri.fromFile(downloadDirectory), fileName)
-            request.setDestinationUri(destinationUri)
-
-            // Tambahkan detail unduhan
-            request.setDescription("Downloading $fileName...")
-            request.setTitle(fileName)
+            request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, fileName)
             request.allowScanningByMediaScanner()
             request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
 
-            // Enqueue unduhan
-            val manager = getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-            manager.enqueue(request)
+            val downloadManager = getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+            downloadManager.enqueue(request)
 
-            // Tampilkan pesan kepada pengguna
-            Toast.makeText(applicationContext, "Downloading: $fileName", Toast.LENGTH_SHORT).show()
+            Toast.makeText(applicationContext, "Mengunduh file: $fileName", Toast.LENGTH_SHORT).show()
         }
+
     }
 
     @Throws(IOException::class)
     private fun createImageFile(): File {
-        val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
+        // Create an image file name
+        val timeStamp: String = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
         val storageDir: File? = getExternalFilesDir(Environment.DIRECTORY_PICTURES)
-        val imageFile = File.createTempFile(
+        return File.createTempFile(
             "JPEG_${timeStamp}_", /* prefix */
             ".jpg", /* suffix */
             storageDir /* directory */
-        )
-        currentPhotoPath = imageFile.absolutePath
-        return imageFile
+        ).apply {
+            // Save a file: path for use with ACTION_VIEW intents
+            currentPhotoPath = absolutePath
+        }
     }
 
     // Mendapatkan lokasi pengguna
