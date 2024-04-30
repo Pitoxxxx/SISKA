@@ -66,6 +66,16 @@ class MainActivity : AppCompatActivity() {
 
         checkLocationPermission()
 
+        // Periksa apakah izin kamera sudah diberikan
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+            // Jika belum, minta izin kamera
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(Manifest.permission.CAMERA),
+                CAMERA_PERMISSION_REQUEST_CODE
+            )
+        }
+
         // Pastikan aplikasi memiliki izin menulis ke penyimpanan eksternal
         if (ContextCompat.checkSelfPermission(
                 this,
@@ -334,11 +344,5 @@ class MainActivity : AppCompatActivity() {
             // Misalnya, Anda dapat menampilkan lokasi pengguna dalam Logcat
             Log.d("Location", "Latitude: $latitude, Longitude: $longitude")
         }
-
-        override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
-
-        override fun onProviderEnabled(provider: String) {}
-
-        override fun onProviderDisabled(provider: String) {}
     }
 }
