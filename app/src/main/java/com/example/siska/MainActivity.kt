@@ -200,7 +200,7 @@ class MainActivity : AppCompatActivity() {
         // Lakukan semua inisialisasi WebView dan muat URL di sini
         val webView: WebView = findViewById(R.id.WV)
         webView.webViewClient = WebViewClient()
-        webView.loadUrl("https://siska.kimiafarmaapotek.co.id/")
+        webView.loadUrl("https://siska.kimiafarma.co.id/")
 
         val webSettings = webView.settings
         webSettings.javaScriptEnabled = true
