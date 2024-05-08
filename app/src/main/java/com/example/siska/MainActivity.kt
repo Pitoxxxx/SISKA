@@ -67,13 +67,12 @@ class MainActivity : AppCompatActivity() {
         checkLocationPermission()
 
         // Periksa apakah izin kamera sudah diberikan
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
             // Jika belum, minta izin kamera
             ActivityCompat.requestPermissions(
                 this,
                 arrayOf(Manifest.permission.CAMERA),
-                CAMERA_PERMISSION_REQUEST_CODE
-            )
+                100)
         }
 
         // Pastikan aplikasi memiliki izin menulis ke penyimpanan eksternal
@@ -201,7 +200,7 @@ class MainActivity : AppCompatActivity() {
         // Lakukan semua inisialisasi WebView dan muat URL di sini
         val webView: WebView = findViewById(R.id.WV)
         webView.webViewClient = WebViewClient()
-        webView.loadUrl("https://siska.kimiafarma.co.id/")
+        webView.loadUrl("https://siska.kimiafarmaapotek.co.id/")
 
         val webSettings = webView.settings
         webSettings.javaScriptEnabled = true
