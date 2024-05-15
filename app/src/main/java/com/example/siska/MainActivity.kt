@@ -40,7 +40,6 @@ class MainActivity : AppCompatActivity() {
     private val FILECHOOSER_RESULTCODE = 1
     private var mUploadMessage: ValueCallback<Array<Uri>>? = null
     private val LOCATION_PERMISSION_REQUEST_CODE = 1001
-    private val CAMERA_PERMISSION_REQUEST_CODE = 1002
     private var currentPhotoPath: String? = null
 
     // Mendefinisikan LocationManager
@@ -65,15 +64,6 @@ class MainActivity : AppCompatActivity() {
         locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
 
         checkLocationPermission()
-
-        // Periksa apakah izin kamera sudah diberikan
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
-            // Jika belum, minta izin kamera
-            ActivityCompat.requestPermissions(
-                this,
-                arrayOf(Manifest.permission.CAMERA),
-                100)
-        }
 
         // Pastikan aplikasi memiliki izin menulis ke penyimpanan eksternal
         if (ContextCompat.checkSelfPermission(
@@ -112,8 +102,8 @@ class MainActivity : AppCompatActivity() {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == FILECHOOSER_RESULTCODE) {
             if (resultCode == Activity.RESULT_OK) {
-                val result = data?.data?.let { arrayOf(it) }
-                mUploadMessage?.onReceiveValue(result)
+                val result = if (data == null) null else data.data
+                mUploadMessage?.onReceiveValue(arrayOf(result!!))
                 mUploadMessage = null
             } else {
                 mUploadMessage?.onReceiveValue(null)
@@ -142,44 +132,7 @@ class MainActivity : AppCompatActivity() {
                     ).show()
                 }
             }
-            CAMERA_PERMISSION_REQUEST_CODE -> {
-                if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    launchCamera()
-                } else {
-                    Toast.makeText(
-                        this,
-                        "Aplikasi memerlukan izin kamera untuk menjalankan tindakan ini",
-                        Toast.LENGTH_SHORT
-                    ).show()
-                }
-            }
         }
-    }
-
-    private fun launchCamera() {
-        val takePictureIntent = Intent(MediaStore.ACTION_IMAGE_CAPTURE)
-        val photoURI = createImageFileURI()
-
-        takePictureIntent.putExtra(MediaStore.EXTRA_OUTPUT, photoURI)
-
-        val contentSelectionIntent = Intent(Intent.ACTION_GET_CONTENT)
-        contentSelectionIntent.addCategory(Intent.CATEGORY_OPENABLE)
-        contentSelectionIntent.type = "image/*"
-
-        val chooserIntent = Intent(Intent.ACTION_CHOOSER)
-        chooserIntent.putExtra(Intent.EXTRA_INTENT, takePictureIntent)
-        chooserIntent.putExtra(Intent.EXTRA_INITIAL_INTENTS, arrayOf(contentSelectionIntent))
-
-        startActivityForResult(chooserIntent, FILECHOOSER_RESULTCODE)
-    }
-
-    private fun createImageFileURI(): Uri {
-        val file = createImageFile()
-        return FileProvider.getUriForFile(
-            this@MainActivity,
-            "com.example.siska.fileprovider",
-            file
-        )
     }
 
     fun checkStoragePermission(): Boolean {
@@ -194,13 +147,12 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-
     @SuppressLint("SetJavaScriptEnabled")
     private fun loadWebView() {
         // Lakukan semua inisialisasi WebView dan muat URL di sini
         val webView: WebView = findViewById(R.id.WV)
         webView.webViewClient = WebViewClient()
-        webView.loadUrl("https://siska.kimiafarma.co.id/")
+        webView.loadUrl("https://helpdesk.yogalabs.cloud")
 
         val webSettings = webView.settings
         webSettings.javaScriptEnabled = true
@@ -221,26 +173,13 @@ class MainActivity : AppCompatActivity() {
                 }
                 mUploadMessage = filePathCallback
 
-                val takePictureIntent = Intent(MediaStore.ACTION_IMAGE_CAPTURE)
-                val file = createImageFile()
-                val photoURI: Uri = FileProvider.getUriForFile(
-                    this@MainActivity,
-                    "com.example.siska.fileprovider",
-                    file
-                )
-                takePictureIntent.putExtra(MediaStore.EXTRA_OUTPUT, photoURI)
-
                 val contentSelectionIntent = Intent(Intent.ACTION_GET_CONTENT)
                 contentSelectionIntent.addCategory(Intent.CATEGORY_OPENABLE)
                 contentSelectionIntent.type = "image/*"
 
                 val chooserIntent = Intent(Intent.ACTION_CHOOSER)
-                chooserIntent.putExtra(Intent.EXTRA_INTENT, takePictureIntent)
+                chooserIntent.putExtra(Intent.EXTRA_INTENT, contentSelectionIntent)
                 chooserIntent.putExtra(Intent.EXTRA_TITLE, "Pilih Aksi")
-                chooserIntent.putExtra(
-                    Intent.EXTRA_INITIAL_INTENTS,
-                    arrayOf(contentSelectionIntent)
-                )
 
                 startActivityForResult(chooserIntent, FILECHOOSER_RESULTCODE)
                 return true
@@ -327,7 +266,7 @@ class MainActivity : AppCompatActivity() {
             // GPS atau jaringan tidak tersedia, tampilkan pesan kepada pengguna
             Toast.makeText(
                 this,
-                "GPS atau jaringan tidak tersedia, aktivkan untuk mendapatkan lokasi",
+                "GPS atau jaringan tidak tersedia, aktifkan untuk mendapatkan lokasi",
                 Toast.LENGTH_SHORT
             ).show()
         }
