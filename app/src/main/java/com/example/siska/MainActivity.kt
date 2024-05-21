@@ -13,6 +13,8 @@ import android.location.LocationManager
 import android.net.Uri
 import android.os.Bundle
 import android.os.Environment
+import android.os.Handler
+import android.os.Looper
 import android.provider.MediaStore
 import android.util.Log
 import android.view.WindowManager
@@ -44,6 +46,12 @@ class MainActivity : AppCompatActivity() {
 
     // Mendefinisikan LocationManager
     private lateinit var locationManager: LocationManager
+
+    // URL halaman utama dan dashboard
+    private val HOME_URL = "https://helpdesk.yogalabs.cloud"
+    private val DASHBOARD_URL = "https://helpdesk.yogalabs.cloud/dashboard"
+
+    private var doubleBackToExitPressedOnce = false
 
     companion object {
         private const val MIN_TIME_BW_UPDATES: Long = 1000 * 60 * 1 // 1 minute
@@ -152,7 +160,7 @@ class MainActivity : AppCompatActivity() {
         // Lakukan semua inisialisasi WebView dan muat URL di sini
         val webView: WebView = findViewById(R.id.WV)
         webView.webViewClient = WebViewClient()
-        webView.loadUrl("https://helpdesk.yogalabs.cloud")
+        webView.loadUrl(HOME_URL)
 
         val webSettings = webView.settings
         webSettings.javaScriptEnabled = true
@@ -281,6 +289,27 @@ class MainActivity : AppCompatActivity() {
 
             // Misalnya, Anda dapat menampilkan lokasi pengguna dalam Logcat
             Log.d("Location", "Latitude: $latitude, Longitude: $longitude")
+        }
+    }
+
+    override fun onBackPressed() {
+        val webView: WebView = findViewById(R.id.WV)
+        if (webView.url == DASHBOARD_URL) {
+            if (doubleBackToExitPressedOnce) {
+                super.onBackPressed()
+                return
+            }
+
+            this.doubleBackToExitPressedOnce = true
+            Toast.makeText(this, "Tekan sekali lagi untuk keluar aplikasi", Toast.LENGTH_SHORT).show()
+
+            Handler(Looper.getMainLooper()).postDelayed({
+                doubleBackToExitPressedOnce = false
+            }, 2000) // 2 detik
+        } else if (webView.canGoBack()) {
+            webView.goBack()
+        } else {
+            super.onBackPressed()
         }
     }
 }
