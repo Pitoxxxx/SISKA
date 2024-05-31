@@ -87,6 +87,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    //Meminta izin akses pada perangkat untuk memberi akses izin lokasi saat user membuka aplikasi
     private fun checkLocationPermission() {
         if (ContextCompat.checkSelfPermission(
                 this,
