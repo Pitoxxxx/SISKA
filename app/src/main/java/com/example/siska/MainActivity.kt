@@ -307,7 +307,7 @@ class MainActivity : AppCompatActivity() {
                 doubleBackToExitPressedOnce = false
             }, 2000) // 2 detik
         } else if (webView.canGoBack()) {
-            webView.goBack()
+            webView.loadUrl(DASHBOARD_URL)
         } else {
             super.onBackPressed()
         }
